@@ -1,0 +1,251 @@
+<style>
+/*
+  ============================================================
+  GLOBE CONTAINER
+  ============================================================
+*/
+
+#globeViz {
+  /* Easily swappable progress-bar colors. */
+  --loader-start: #c56129;
+  --loader-end: #f5ad59;
+
+  position: relative;
+  width: 100vw;
+  height: 65vh;
+  overflow: hidden;
+  cursor: grab;
+  background: #000 !important;
+}
+
+
+/*
+  ============================================================
+  GLOBE CANVAS
+  ============================================================
+*/
+
+#globeViz canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+
+  /*
+    Keep the globe hidden while it loads.
+    JavaScript adds .is-ready when the canvas is available.
+  */
+  opacity: 0;
+
+  /* Globe position and initial entrance scale. */
+  transform: translateY(15%) scale(0.995);
+
+  transition:
+    opacity 600ms ease,
+    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Bottom fade for Safari and Chromium browsers. */
+  -webkit-mask-image: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.4) 35%,
+    rgba(0, 0, 0, 0.9) 45%,
+    rgba(0, 0, 0, 1) 55%
+  );
+
+  /* Standard bottom fade. */
+  mask-image: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.4) 35%,
+    rgba(0, 0, 0, 0.9) 45%,
+    rgba(0, 0, 0, 1) 55%
+  );
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+/* Reveal the globe when JavaScript marks it as ready. */
+#globeViz.is-ready canvas {
+  opacity: 1;
+  transform: translateY(15%) scale(1);
+}
+
+
+/*
+  ============================================================
+  CENTERED PROGRESS LOADER
+  ============================================================
+*/
+
+.globe-loader {
+  /* JavaScript updates this value while loading. */
+  --progress: 4%;
+
+  position: absolute;
+  z-index: 10;
+
+  /*
+    Center the loader horizontally and vertically
+    inside #globeViz.
+  */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  width: min(320px, 62vw);
+
+  transition:
+    opacity 400ms ease,
+    visibility 400ms ease;
+}
+
+
+/*
+  ============================================================
+  PROGRESS TRACK
+  ============================================================
+*/
+
+.globe-loader__track {
+  width: 100%;
+  height: 3px;
+  overflow: visible;
+  border-radius: 999px;
+
+  /* Dark, subtle unfilled track. */
+  background: rgba(255, 255, 255, 0.12);
+
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+
+/*
+  ============================================================
+  PROGRESS FILL
+  ============================================================
+*/
+
+.globe-loader__progress {
+  position: relative;
+
+  /* Controlled by --progress and updated by JavaScript. */
+  width: var(--progress);
+  height: 100%;
+
+  border-radius: inherit;
+
+  /*
+    New two-color gradient:
+    #C56129 → #F5AD59
+  */
+  background: linear-gradient(
+    90deg,
+    var(--loader-start) 0%,
+    var(--loader-end) 100%
+  );
+
+  /* Glow derived from the new brand colors. */
+  box-shadow:
+    0 0 7px rgba(197, 97, 41, 0.7),
+    0 0 15px rgba(245, 173, 89, 0.5);
+
+  /* Smooth each progress update. */
+  transition: width 180ms ease-out;
+}
+
+
+/*
+  ============================================================
+  LEADING FLASH
+  ============================================================
+*/
+
+.globe-loader__progress::after {
+  content: "";
+
+  position: absolute;
+  top: 50%;
+  right: -2px;
+
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+  background: #fff;
+
+  transform: translateY(-50%);
+
+  /*
+    White core with a glow based on the
+    light-orange gradient endpoint.
+  */
+  box-shadow:
+    0 0 5px 2px #fff,
+    0 0 12px 5px rgba(245, 173, 89, 0.9),
+    0 0 24px 9px rgba(245, 173, 89, 0.4);
+
+  animation:
+    globe-loader-flash 650ms ease-in-out infinite alternate;
+}
+
+
+/*
+  ============================================================
+  COMPLETED STATE
+  ============================================================
+*/
+
+.globe-loader.is-complete {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+
+/*
+  ============================================================
+  FLASH ANIMATION
+  ============================================================
+*/
+
+@keyframes globe-loader-flash {
+  from {
+    opacity: 0.7;
+    transform: translateY(-50%) scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.2);
+  }
+}
+
+
+/*
+  ============================================================
+  REDUCED MOTION
+  ============================================================
+*/
+
+@media (prefers-reduced-motion: reduce) {
+  /* Disable the repeating flash animation. */
+  .globe-loader__progress::after {
+    animation: none;
+  }
+
+  /* Reveal the globe and loader state changes immediately. */
+  #globeViz canvas,
+  .globe-loader {
+    transition-duration: 0.01ms;
+  }
+}
+</style>
