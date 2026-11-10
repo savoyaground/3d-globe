@@ -7,6 +7,8 @@
    - Globe.gl loads on demand if the page hasn't loaded it already.
    - Setup starts before the globe scrolls into view.
    - Rendering pauses while the globe is off screen.
+   Network lines (Nov 2026): copper routes between Savoya cities with
+   gold endpoint pulses, matching the Service Areas globe.
 ================================================== */
 (function () {
   const globeEl = document.getElementById('globeViz');
@@ -124,6 +126,85 @@
     );
 
     globe.pointsData(dots);
+
+    /* ---------- Network lines (same look as the Service Areas globe) ----------
+       Thin copper routes between Savoya cities. Each route draws out from its
+       first city, retreats into its second, rests, then repeats on its own
+       timing, so the network keeps flickering to life. Endpoint cities pulse
+       with a small gold ring. Reduced motion: static hairlines, no pulses. */
+    const NET_LINE = 'rgba(221,144,88,0.95)';   /* #DD9058, same as the dots */
+    const NET_LINE_TAIL = 'rgba(221,144,88,0.25)';
+    const NET_GLOW = '245,211,166';             /* #F5D3A6 endpoint pulses */
+    const NET_CITIES = { /* all Savoya service areas (service-areas.json) */
+      dal: [32.78, -96.8], nyc: [40.71, -74.01], bos: [42.36, -71.06], mia: [25.76, -80.19],
+      tor: [43.65, -79.38], sao: [-23.55, -46.63], bog: [4.71, -74.07], lis: [38.72, -9.14],
+      mad: [40.42, -3.7], lon: [51.51, -0.13], dub: [53.35, -6.26], par: [48.86, 2.35],
+      zrh: [47.38, 8.54], fra: [50.11, 8.68], rom: [41.9, 12.5], cas: [33.57, -7.59],
+      cai: [30.04, 31.24], ist: [41.01, 28.98], tlv: [32.09, 34.78]
+    };
+    /* Mostly routes that face the viewer at the globe's resting angle;
+       the Dallas (home base) routes swing into view as the pointer moves left */
+    const NET_ROUTES = [
+      ['lon', 'nyc'], ['par', 'nyc'], ['mad', 'mia'], ['lis', 'sao'], ['dub', 'bos'],
+      ['fra', 'tor'], ['rom', 'cas'], ['zrh', 'ist'], ['par', 'cai'], ['mad', 'bog'],
+      ['lon', 'tlv'], ['mia', 'sao'], ['fra', 'lis'], ['lon', 'bos'], ['dal', 'lon'], ['dal', 'par']
+    ];
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function seeded(seed) { /* stable "random" so the page looks the same each visit */
+      let s = seed >>> 0;
+      return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    }
+    function arcDistance(a, b) { /* great-circle distance in radians */
+      const r = Math.PI / 180;
+      const h = Math.sin((b[0] - a[0]) * r / 2) ** 2 +
+        Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin((b[1] - a[1]) * r / 2) ** 2;
+      return 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    const rnd = seeded(7);
+    const arcs = NET_ROUTES.map(([from, to]) => {
+      const a = NET_CITIES[from], b = NET_CITIES[to], d = arcDistance(a, b);
+      return {
+        startLat: a[0], startLng: a[1], endLat: b[0], endLng: b[1],
+        alt: 0.03 + d * 0.1,                              /* longer routes arc higher, kept low like the service map */
+        time: 2600 + d * 900 + rnd() * 900,               /* draw speed scales with distance */
+        phase: 1 + rnd() * 2                              /* staggered start, in route lengths */
+      };
+    });
+
+    globe
+      .arcsData(arcs)
+      .arcAltitude('alt')
+      .arcColor(() => [NET_LINE_TAIL, NET_LINE])
+      .arcStroke(0.4)
+      .arcCurveResolution(48)
+      .arcCircularResolution(3)
+      .arcsTransitionDuration(0);
+
+    if (reduceMotion) {
+      globe.arcDashLength(1).arcDashGap(0);
+    } else {
+      globe
+        .arcDashLength(1)
+        .arcDashGap(1.6)
+        .arcDashInitialGap('phase')
+        .arcDashAnimateTime('time');
+
+      const ends = {};
+      NET_ROUTES.forEach(([from, to]) => { ends[from] = 1; ends[to] = 1; });
+      const rings = Object.keys(ends).map((key, i) => ({
+        lat: NET_CITIES[key][0], lng: NET_CITIES[key][1], period: 1800 + (i % 5) * 350
+      }));
+      globe
+        .ringsData(rings)
+        .ringColor(() => (t) => `rgba(${NET_GLOW},${0.85 * (1 - t)})`)
+        .ringMaxRadius(2.4)
+        .ringPropagationSpeed(1.4)
+        .ringRepeatPeriod('period')
+        .ringAltitude(DOT_ALTITUDE);
+    }
+
 
     /* Camera easing, paused with the renderer while off screen */
     let rafId = null;
